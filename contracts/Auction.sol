@@ -6,7 +6,6 @@ import "openzeppelin-solidity/contracts/utils/math/SafeMath.sol";
 
 contract Auction is Ownable {
     using SafeMath for uint256;
-    // TODO: Add events
 
     string public name;
     string public description;
