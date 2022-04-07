@@ -1,4 +1,5 @@
 const AuctionContract = artifacts.require("Auction");
+const helpers = require("./helpers");
 
 contract("Auction", (accounts) => {
     const name = "Pu Erh Tea";
@@ -6,6 +7,17 @@ contract("Auction", (accounts) => {
     const imageUrl = "https://www.google.com/pu-erh-tea.jpg";
     const endDate = Math.floor(Date.now() / 1000) + 6000;
     const owner = accounts[0];
+
+    const bidder = accounts[1];
+    const value = web3.utils.toWei("0.1");
+
+    async function addBids(auction, count) {
+        for (let i = 1; i < count + 1; i++) {
+            const value = web3.utils.toWei(i.toString());
+            const bidder = accounts[i];
+            await auction.placeBid(value, { from: bidder });
+        }
+    }
 
     beforeEach(async () => {
         // Contract has no migration, so it has to be deployed manually
@@ -43,15 +55,12 @@ contract("Auction", (accounts) => {
             const actual = await auction.owner();
             assert.equal(actual, owner, "owners should match");
         });
-    });
 
-    async function addBids(auction, count) {
-        for (let i = 1; i < count + 1; i++) {
-            const value = web3.utils.toWei(i.toString());
-            const bidder = accounts[i];
-            await auction.placeBid(value, { from: bidder });
-        }
-    }
+        it("gets the payment status", async () => {
+            const actual = await auction.paid();
+            assert.equal(actual, false, "payment status should be false");
+        });
+    });
 
     describe("getting bids", () => {
         it("gets an empty list when there are no bids", async () => {
@@ -88,9 +97,6 @@ contract("Auction", (accounts) => {
     });
 
     describe("placing bids", () => {
-        const bidder = accounts[1];
-        const value = web3.utils.toWei("0.123");
-
         it("adds a bid to the list", async () => {
             await auction.placeBid(value, { from: bidder });
 
@@ -191,22 +197,169 @@ contract("Auction", (accounts) => {
         });
     });
 
-    describe("last bid", () => {
+    describe("getting last bid", () => {
         it("returns an empty object when there are no bids", async () => {
-            const actual = await auction.lastBid();
+            const actual = await auction.getLastBid();
             assert.equal(actual.bidder, 0, "bidder should be empty");
             assert.equal(actual.value, 0, "value should be empty");
         });
 
         it("returns the last bid", async () => {
             await addBids(auction, 2);
-            const actual = await auction.lastBid();
+            const actual = await auction.getLastBid();
             assert.equal(actual.bidder, accounts[2], "bidder should match");
             assert.equal(
                 actual.value,
                 web3.utils.toWei("2"),
                 "value should match"
             );
+        });
+    });
+
+    describe("paying for auction", () => {
+        beforeEach(async () => {
+            let snapshot = await helpers.takeSnapshot();
+            snapshotId = snapshot["result"];
+        });
+
+        afterEach(async () => {
+            // Revert modified timestamps
+            await helpers.revertToSnapshot(snapshotId);
+        });
+
+        it("updates payment status", async () => {
+            await auction.placeBid(value, { from: bidder });
+            await helpers.increaseTimestamp(6001);
+            await auction.pay({ from: bidder, value });
+
+            const actual = await auction.paid();
+            assert.equal(actual, true, "paid should be true");
+        });
+
+        it("emits a Payment event", async () => {
+            await auction.placeBid(value, { from: bidder });
+            await helpers.increaseTimestamp(6001);
+            const tx = await auction.pay({ from: bidder, value });
+
+            const expectedEvent = "Payment";
+            const actualEvent = tx.logs[0].event;
+            assert.equal(actualEvent, expectedEvent, "events should match");
+        });
+
+        it("does not allow to pay for pending auction", async () => {
+            try {
+                await auction.pay({ from: bidder, value });
+                assert.fail("error was not raised");
+            } catch (err) {
+                const expected = "Auction has not ended";
+                assert.ok(err.message.includes(expected), err.message);
+            }
+        });
+
+        it("does not allow to pay twice", async () => {
+            await auction.placeBid(value, { from: bidder });
+            await helpers.increaseTimestamp(6001);
+            await auction.pay({ from: bidder, value });
+
+            try {
+                await auction.pay({ from: bidder, value });
+                assert.fail("error was not raised");
+            } catch (err) {
+                const expected = "Auction has already been paid";
+                assert.ok(err.message.includes(expected), err.message);
+            }
+        });
+
+        it("does only allow to pay by the winner", async () => {
+            await auction.placeBid(value, { from: bidder });
+            await helpers.increaseTimestamp(6001);
+
+            try {
+                await auction.pay({ from: accounts[2], value });
+                assert.fail("error was not raised");
+            } catch (err) {
+                const expected = "Only the last bidder can pay";
+                assert.ok(err.message.includes(expected), err.message);
+            }
+        });
+
+        it("does not allow to pay with a lower value", async () => {
+            await auction.placeBid(value, { from: bidder });
+            await helpers.increaseTimestamp(6001);
+
+            try {
+                await auction.pay({
+                    from: bidder,
+                    value: web3.utils.toWei("0.001"),
+                });
+                assert.fail("error was not raised");
+            } catch (err) {
+                const expected = "Bidder cannot pay less than the last bid";
+                assert.ok(err.message.includes(expected), err.message);
+            }
+        });
+    });
+
+    describe("withdrawing funds", () => {
+        beforeEach(async () => {
+            let snapshot = await helpers.takeSnapshot();
+            snapshotId = snapshot["result"];
+        });
+
+        afterEach(async () => {
+            // Revert modified timestamps
+            await helpers.revertToSnapshot(snapshotId);
+        });
+
+        it("transfers funds to auction owner", async () => {
+            await auction.placeBid(value, { from: bidder });
+            await helpers.increaseTimestamp(6001);
+            await auction.pay({ from: bidder, value });
+
+            const oldBalance = await web3.eth.getBalance(owner);
+            await auction.withdraw({ from: owner });
+            const newBalance = await web3.eth.getBalance(owner);
+
+            expect(newBalance - oldBalance).closeTo(
+                parseInt(value),
+                parseInt(web3.utils.toWei("0.001")),
+                "funds should be transferred"
+            );
+        });
+
+        it("emits a Withdrawal event", async () => {
+            await auction.placeBid(value, { from: bidder });
+            await helpers.increaseTimestamp(6001);
+            await auction.pay({ from: bidder, value });
+
+            const tx = await auction.withdraw({ from: owner });
+
+            const expectedEvent = "Withdrawal";
+            const actualEvent = tx.logs[0].event;
+            assert.equal(actualEvent, expectedEvent, "events should match");
+        });
+
+        it("does not allow to withdraw funds before auction ends", async () => {
+            try {
+                await auction.withdraw({ from: owner });
+                assert.fail("error was not raised");
+            } catch (err) {
+                const expected = "Auction has not ended";
+                assert.ok(err.message.includes(expected), err.message);
+            }
+        });
+
+        it("does not allow to withdraw before auction is paid", async () => {
+            await auction.placeBid(value, { from: bidder });
+            await helpers.increaseTimestamp(6001);
+
+            try {
+                await auction.withdraw({ from: owner });
+                assert.fail("error was not raised");
+            } catch (err) {
+                const expected = "Auction has not been paid";
+                assert.ok(err.message.includes(expected), err.message);
+            }
         });
     });
 });

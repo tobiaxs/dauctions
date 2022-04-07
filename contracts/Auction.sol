@@ -11,6 +11,7 @@ contract Auction is Ownable {
     string public description;
     string public imageUrl;
     uint256 public endDate;
+    bool public paid = false;
 
     struct Bid {
         address bidder;
@@ -20,6 +21,8 @@ contract Auction is Ownable {
     Bid[] private _bids;
 
     event BidPlaced(Bid bid);
+    event Payment(uint256 amount);
+    event Withdrawal(uint256 amount);
 
     constructor(
         string memory _name,
@@ -59,7 +62,7 @@ contract Auction is Ownable {
         return bids;
     }
 
-    function lastBid() public view returns (Bid memory bid) {
+    function getLastBid() public view returns (Bid memory bid) {
         if (_bids.length == 0) {
             return bid;
         }
@@ -75,33 +78,52 @@ contract Auction is Ownable {
             "Owners cannot bid on their own auction"
         );
 
+        Bid memory bid = Bid({
+            bidder: msg.sender,
+            value: value,
+            date: block.timestamp
+        });
+
         if (_bids.length == 0) {
             // First bid
-            Bid memory bid = Bid({
-                bidder: msg.sender,
-                value: value,
-                date: block.timestamp
-            });
             _bids.push(bid);
-            emit BidPlaced(bid);
         } else {
-            Bid memory _lastBid = lastBid();
+            Bid memory lastBid = getLastBid();
+            require(value > lastBid.value, "Bid must be greater than last bid");
             require(
-                value > _lastBid.value,
-                "Bid must be greater than last bid"
-            );
-            require(
-                msg.sender != _lastBid.bidder,
+                msg.sender != lastBid.bidder,
                 "Bidder cannot place two bids in a row"
             );
-            Bid memory bid = Bid({
-                bidder: msg.sender,
-                value: value,
-                date: block.timestamp
-            });
             _bids.push(bid);
-            emit BidPlaced(bid);
         }
+
+        emit BidPlaced(bid);
+    }
+
+    function pay() public payable {
+        require(endDate < block.timestamp, "Auction has not ended");
+        require(paid == false, "Auction has already been paid");
+
+        Bid memory lastBid = getLastBid();
+        require(msg.sender == lastBid.bidder, "Only the last bidder can pay");
+        require(
+            msg.value >= lastBid.value,
+            "Bidder cannot pay less than the last bid"
+        );
+
+        paid = true;
+
+        emit Payment(msg.value);
+    }
+
+    function withdraw() public onlyOwner {
+        require(endDate < block.timestamp, "Auction has not ended");
+        require(paid == true, "Auction has not been paid");
+
+        uint256 balance = address(this).balance;
+        payable(owner()).transfer(balance);
+
+        emit Withdrawal(balance);
     }
 
     fallback() external payable {}
