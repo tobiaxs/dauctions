@@ -2,6 +2,7 @@ const path = require("path");
 
 module.exports = {
     contracts_build_directory: path.join(__dirname, "client/src/contracts"),
+
     networks: {
         develop: {
             host: "127.0.0.1",
@@ -10,11 +11,19 @@ module.exports = {
         },
     },
 
-    mocha: {},
+    mocha: {
+        reporter: "eth-gas-reporter",
+
+        reporterOptions: {
+            excludeContracts: ["Migrations"],
+        },
+    },
 
     compilers: {
         solc: {
             version: "0.8.13",
         },
     },
+
+    plugins: ["solidity-coverage"],
 };

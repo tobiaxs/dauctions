@@ -1,0 +1,45 @@
+name: Continuous Integration
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+
+jobs:
+  ci:
+    name: Lint and Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Setup NodeJS 16
+        uses: actions/setup-node@v2
+        with:
+          node-version: 16.x
+
+      - name: Node modules cache
+        uses: actions/cache@v2
+        with:
+          path: /node_modules
+          key: ${{ runner.os }}-node-modules-${{ hashFiles('package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-modules-
+
+      - name: Install Truffle
+        run: npm install truffle@5.4.29
+
+      - name: Install Truffle Dependencies
+        run: npm install
+
+      - name: Run Truffle Test with CI=true for Codechecks
+        run: CI=true truffle test
+
+      - name: Run Test Coverage
+        run: truffle run coverage
+
+      # - name: Run Codechecks
+      #   run: npx codechecks
+      #   env:
+      #     CC_SECRET: ${{ secrets.CC_SECRET }}

@@ -1,5 +1,10 @@
 {
     "dependencies": {
         "openzeppelin-solidity": "^4.5.0"
+    },
+    "devDependencies": {
+        "@codechecks/client": "^0.1.12",
+        "eth-gas-reporter": "^0.2.25",
+        "solidity-coverage": "^0.7.20"
     }
 }

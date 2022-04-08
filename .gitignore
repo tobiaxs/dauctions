@@ -30,3 +30,8 @@ chrome-user-data
 .hadolint.yaml
 .markdownlint.yaml
 .shellcheckrc
+
+# Code checks
+coverage.json
+coverage_*/
+gasReporterOutput.json
