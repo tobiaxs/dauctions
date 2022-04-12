@@ -26,6 +26,7 @@ jobs:
           node-version: 16.x
 
       - name: Cache node modules
+        id: cached-node-modules
         uses: actions/cache@v3
         env:
           cache-name: cache-node-modules
@@ -39,12 +40,15 @@ jobs:
 
       - name: Install Truffle
         run: npm install truffle@5.4.29
+        if: steps.cached-node-modules.outputs.cache-hit != 'true'
 
       - name: Install Truffle Dependencies
         run: npm install
 
       - name: Run Truffle Test with CI=true for Codechecks
-        run: CI=true npx truffle test
+        env:
+          CI: true
+        run: npx truffle test
 
       - name: Run Codechecks
         run: npx codechecks
