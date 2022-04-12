@@ -46,10 +46,10 @@ jobs:
       - name: Run Truffle Test with CI=true for Codechecks
         run: CI=true npx truffle test
 
-      - name: Run Test Coverage
-        run: npx truffle run coverage
-
       - name: Run Codechecks
         run: npx codechecks
         env:
           CC_SECRET: ${{ secrets.CC_SECRET }}
+
+      - name: Run Test Coverage
+        run: npx truffle run coverage
