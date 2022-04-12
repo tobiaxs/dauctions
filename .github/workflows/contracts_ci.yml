@@ -1,15 +1,21 @@
-name: Continuous Integration
+name: Smart Contracts Continuous Integration
 
 on:
   push:
     branches:
       - main
       - develop
+    paths:
+      - "contracts/**"
+      - ".github/workflows/contracts_ci.yml"
   pull_request:
+    paths:
+      - "contracts/**"
+      - ".github/workflows/contracts_ci.yml"
 
 jobs:
   ci:
-    name: Lint and Test
+    name: Test Contracts
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -19,22 +25,23 @@ jobs:
         with:
           node-version: 16.x
 
-      - name: Node modules cache
-        uses: actions/cache@v2
+      - name: Cache node modules
+        uses: actions/cache@v3
+        env:
+          cache-name: cache-node-modules
         with:
-          path: /node_modules
-          key: ${{ runner.os }}-node-modules-${{ hashFiles('package.json') }}
+          path: ~/.npm
+          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/package.json') }}
           restore-keys: |
-            ${{ runner.os }}-node-modules-
+            ${{ runner.os }}-build-${{ env.cache-name }}-
+            ${{ runner.os }}-build-
+            ${{ runner.os }}-
 
       - name: Install Truffle
         run: npm install truffle@5.4.29
 
       - name: Install Truffle Dependencies
         run: npm install
-
-      - name: Take a look
-        run: ls
 
       - name: Run Truffle Test with CI=true for Codechecks
         run: CI=true npx truffle test
