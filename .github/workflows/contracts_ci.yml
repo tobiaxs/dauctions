@@ -1,0 +1,58 @@
+name: Smart Contracts Continuous Integration
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - "contracts/**"
+      - ".github/workflows/contracts_ci.yml"
+  pull_request:
+    paths:
+      - "contracts/**"
+      - ".github/workflows/contracts_ci.yml"
+
+jobs:
+  ci:
+    name: Test Contracts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Setup NodeJS 16
+        uses: actions/setup-node@v2
+        with:
+          node-version: 16.x
+
+      - name: Cache node modules
+        id: cached-node-modules
+        uses: actions/cache@v3
+        env:
+          cache-name: cache-node-modules
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-build-${{ env.cache-name }}-
+            ${{ runner.os }}-build-
+            ${{ runner.os }}-
+
+      - name: Install Truffle
+        run: npm install -g truffle@5.4.29
+
+      - name: Install Truffle Dependencies
+        run: npm install
+
+      - name: Run Truffle Test with CI=true for Codechecks
+        env:
+          CI: true
+        run: truffle test --reporter eth-gas-reporter
+
+      - name: Run Codechecks
+        run: npx codechecks
+        env:
+          CC_SECRET: ${{ secrets.CC_SECRET }}
+
+      - name: Run Test Coverage
+        run: truffle run coverage
