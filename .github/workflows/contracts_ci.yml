@@ -39,8 +39,7 @@ jobs:
             ${{ runner.os }}-
 
       - name: Install Truffle
-        run: npm install truffle@5.4.29
-        if: steps.cached-node-modules.outputs.cache-hit != 'true'
+        run: npm install -g truffle@5.4.29
 
       - name: Install Truffle Dependencies
         run: npm install
