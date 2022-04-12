@@ -47,7 +47,7 @@ jobs:
       - name: Run Truffle Test with CI=true for Codechecks
         env:
           CI: true
-        run: truffle test
+        run: truffle test --reporter eth-gas-reporter
 
       - name: Run Codechecks
         run: npx codechecks
