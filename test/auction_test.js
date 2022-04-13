@@ -20,7 +20,6 @@ contract("Auction", (accounts) => {
     }
 
     beforeEach(async () => {
-        // Contract has no migration, so it has to be deployed manually
         auction = await AuctionContract.new(
             name,
             description,
