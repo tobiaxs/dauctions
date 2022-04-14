@@ -1,0 +1,14 @@
+version: "3.8"
+
+services:
+  react:
+    container_name: dauctions-ui
+    build:
+      context: .
+      dockerfile: ./docker/Dockerfile
+    volumes:
+      - "./src:/app/src"
+    ports:
+      - 3000:3000
+    stdin_open: true
+    tty: true
