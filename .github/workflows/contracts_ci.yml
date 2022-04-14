@@ -1,4 +1,4 @@
-name: Smart Contracts Continuous Integration
+name: Contracts Continuous Integration
 
 on:
   push:
