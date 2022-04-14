@@ -48,7 +48,7 @@ jobs:
       - name: Check the linting
         run: npm run lint
 
-      - name: Check the linting
+      - name: Run tests
         run: npm run test
 
       - name: Build
