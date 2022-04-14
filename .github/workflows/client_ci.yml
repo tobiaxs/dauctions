@@ -13,7 +13,7 @@ defaults:
 
 jobs:
   ci:
-    name: Lint and Test Client
+    name: Lint, Test and Build Client
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
